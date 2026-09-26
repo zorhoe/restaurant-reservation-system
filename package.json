@@ -1,0 +1,23 @@
+{
+  "name": "restaurant-reservation-system",
+  "version": "1.0.0",
+  "description": "MERN restaurant reservation system",
+  "private": true,
+  "scripts": {
+    "client": "npm run dev --prefix client",
+    "server": "npm run dev --prefix server",
+    "dev": "concurrently --kill-others-on-fail \"npm run server\" \"npm run client\"",
+    "start": "npm start --prefix server",
+    "build": "npm run build --prefix client",
+    "lint": "npm run lint --prefix server && npm run lint --prefix client",
+    "setup": "npm ci && npm ci --prefix server && npm ci --prefix client",
+    "db:check": "npm run db:check --prefix server"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "concurrently": "^10.0.5"
+  }
+}
