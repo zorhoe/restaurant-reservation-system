@@ -4,6 +4,7 @@
   "description": "MERN restaurant reservation system",
   "private": true,
   "scripts": {
+    "test": "npm test --prefix server",
     "client": "npm run dev --prefix client",
     "server": "npm run dev --prefix server",
     "dev": "concurrently --kill-others-on-fail \"npm run server\" \"npm run client\"",
