@@ -2,18 +2,26 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createApp } from '../app.js';
+import { createMemoryStore } from '../repositories/memoryStore.js';
+import { hashPassword } from '../utils/password.js';
+const passwordHash = await hashPassword('TestAdmin123!');
 
 const settings = { clientOrigin: 'http://localhost:5173', defaultDurationMinutes: 60, maxDurationMinutes: 180, maxAdvanceDays: 30 };
 async function fixture(t) {
   let current = new Date('2027-01-01T00:00:00.000Z');
-  const server = createApp({ settings, clock: () => current }).listen(0, '127.0.0.1');
+  const store = createMemoryStore();
+  store.create('users', {name:'Test Admin',email:'admin@example.com',role:'admin',passwordHash});
+  let cookie = '';
+  const server = createApp({ store, settings: {...settings, sessionSeconds: 365*86400}, clock: () => current }).listen(0, '127.0.0.1');
   await once(server, 'listening');
   t.after(() => new Promise(resolve => { server.close(resolve); server.closeAllConnections(); }));
   const base = `http://127.0.0.1:${server.address().port}/api`;
   const request = async (path, method = 'GET', body) => {
-    const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json' }, body: body === undefined ? undefined : JSON.stringify(body) });
+    const response = await fetch(base + path, { method, headers: { 'Content-Type': 'application/json', 'X-Requested-With':'Gather', Cookie:cookie }, body: body === undefined ? undefined : JSON.stringify(body) });
+    if (response.headers.get('set-cookie')) cookie = response.headers.get('set-cookie').split(';')[0];
     return { status: response.status, body: response.status === 204 ? null : await response.json() };
   };
+  await request('/auth/login','POST',{email:'admin@example.com',password:'TestAdmin123!'});
   const restaurant = (await request('/restaurants', 'POST', { name: 'Test Kitchen', address: 'Manila' })).body.data;
   const table = (await request('/tables', 'POST', { restaurantId: restaurant.id, label: 'T1', capacity: 4 })).body.data;
   const booking = { tableId: table.id, guestName: 'Test Guest', guestEmail: 'guest@example.com', guestCount: 3, startAt: '2027-01-02T10:00:00.000Z' };
@@ -95,3 +103,4 @@ test('independent app instances do not share temporary data', async t => {
   assert.equal((await first.request(`/tables/${first.table.id}`, 'DELETE')).status, 204);
   assert.equal((await first.request(`/restaurants/${first.restaurant.id}`, 'DELETE')).status, 204);
 });
+
