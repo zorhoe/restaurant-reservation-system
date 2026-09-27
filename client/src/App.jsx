@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import * as api from "./services/preview";
+import * as api from "./services/api";
 import "./App.css";
 
 const dateLabel = (value) =>
@@ -71,7 +71,10 @@ const go = (route) => {
 };
 function useRoute() {
   const [route, setRoute] = useState(
-    () => window.location.hash.slice(1) || "overview",
+    () =>
+      window.location.hash.slice(1) ||
+      window.location.pathname.slice(1) ||
+      "overview",
   );
   useEffect(() => {
     const change = () => setRoute(window.location.hash.slice(1) || "overview");
@@ -81,17 +84,85 @@ function useRoute() {
   return route;
 }
 function App() {
-  const [user, setUser] = useState(null);
-  const route = useRoute();
+  const [user, setUser] = useState(null),
+    [ready, setReady] = useState(false),
+    [sessionError, setSessionError] = useState("");
+  const rawRoute = useRoute();
+  const route = ["home", ""].includes(rawRoute) ? "overview" : rawRoute;
+  useEffect(() => {
+    let active = true;
+    const check = () =>
+      api
+        .me()
+        .then((value) => {
+          if (active) {
+            setUser(value);
+            setSessionError("");
+            setReady(true);
+          }
+        })
+        .catch((err) => {
+          if (active) {
+            setSessionError(err.message);
+            setReady(true);
+          }
+        });
+    check();
+    const expired = () => {
+      setUser(null);
+      go("login");
+    };
+    const visibility = () => {
+      if (document.visibilityState === "visible") check();
+    };
+    window.addEventListener("gather:unauthorized", expired);
+    window.addEventListener("focus", check);
+    document.addEventListener("visibilitychange", visibility);
+    const timer = setInterval(check, 60000);
+    return () => {
+      active = false;
+      clearInterval(timer);
+      window.removeEventListener("gather:unauthorized", expired);
+      window.removeEventListener("focus", check);
+      document.removeEventListener("visibilitychange", visibility);
+    };
+  }, []);
+  useEffect(() => {
+    if (!ready || sessionError) return;
+    if (!user && !["login", "register"].includes(route)) go("login");
+    if (user && ["login", "register"].includes(route)) go("overview");
+  }, [ready, user, route, sessionError]);
   const signedIn = (value) => {
     setUser(value);
+    setSessionError("");
     go("overview");
   };
-  const signOut = () => {
-    api.logout();
-    setUser(null);
-    go("login");
+  const signOut = async () => {
+    try {
+      await api.logout();
+      setUser(null);
+      setSessionError("");
+      go("login");
+    } catch (err) {
+      setSessionError(err.message);
+    }
   };
+  if (!ready)
+    return (
+      <div className="loading" role="status">
+        Checking your session…
+      </div>
+    );
+  if (sessionError)
+    return (
+      <div className="empty">
+        <h2>Connection interrupted</h2>
+        <p role="alert">{sessionError}</p>
+        <button className="primary" onClick={() => window.location.reload()}>
+          Retry connection
+        </button>
+      </div>
+    );
   if (!user)
     return (
       <AuthScreen registerMode={route === "register"} onSignIn={signedIn} />
@@ -100,14 +171,17 @@ function App() {
     user.role === "admin"
       ? Object.keys(titles)
       : ["overview", "reservations", "restaurants", "profile"];
+  const effectiveRoute = ["login", "register"].includes(route)
+    ? "overview"
+    : route;
   return (
     <Workspace
-      key={user.id}
+      key={`${user.id}:${user.role}`}
       user={user}
       onUser={setUser}
       onLogout={signOut}
-      route={route}
-      allowed={permitted.includes(route)}
+      route={effectiveRoute}
+      allowed={permitted.includes(effectiveRoute)}
     />
   );
 }
@@ -167,10 +241,10 @@ function AuthScreen({ registerMode, onSignIn }) {
       </section>
       <section className="auth-panel">
         <div className="preview-banner">
-          <strong>Frontend preview</strong>
+          <strong>Welcome to your reservation account</strong>
           <span>
-            Accounts and records reset on refresh. No real authentication or
-            database is connected. Use test details only.
+            Sign in to manage your reservations. Your session stays active when
+            you refresh or switch pages.
           </span>
         </div>
         <div className="auth-form">
@@ -257,19 +331,10 @@ function AuthScreen({ registerMode, onSignIn }) {
               {registerMode ? "Sign in" : "Create an account"}
             </a>
           </p>
-          <div className="demo-credentials">
-            <strong>Preview accounts</strong>
-            <p>
-              Admin: <code>admin@example.com</code> / <code>Admin123!</code>
-            </p>
-            <p>
-              Regular User: <code>guest@example.com</code> /{" "}
-              <code>Guest123!</code>
-            </p>
-            <small>
-              These are public demo credentials, not production accounts.
-            </small>
-          </div>
+          <p className="form-help">
+            New accounts are Regular Users. Administrator access is assigned by
+            an administrator.
+          </p>
         </div>
       </section>
     </div>
@@ -426,18 +491,10 @@ function Workspace({ user, onUser, onLogout, route, allowed }) {
             {label(route) || "Page not found"}
           </div>
           <span className="badge confirmed">
-            {isAdmin ? "Admin" : "Regular User"} preview
+            {isAdmin ? "Admin" : "Regular User"}
           </span>
         </header>
         <main>
-          <div className="preview-banner">
-            <strong>Frontend preview · test data only</strong>
-            <span>
-              Changes stay in this tab until refresh. Sign-in, permissions, and
-              CRUD are simulated; JWT and server authorization are not
-              connected.
-            </span>
-          </div>
           {error && (
             <div className="alert error" role="alert">
               {error}
@@ -1034,7 +1091,7 @@ function Profile({ user, onSave }) {
   return (
     <section className="panel profile-panel">
       <h2>Personal information</h2>
-      <p>Update your name, email, and preview password.</p>
+      <p>Update your name, email, and password.</p>
       <form onSubmit={submit}>
         {error && (
           <div role="alert" className="alert error">
@@ -1043,6 +1100,14 @@ function Profile({ user, onSave }) {
         )}
         <fieldset disabled={busy}>
           <AccountFields record={user} />
+          <label>
+            Current password (required to change email or password)
+            <input
+              name="currentPassword"
+              type="password"
+              autoComplete="current-password"
+            />
+          </label>
           <label>
             Confirm new password
             <input
@@ -1203,7 +1268,7 @@ function RecordDialog({ modal, user, venue, tables, onClose, onSaved }) {
     >
       <div className="modal-heading">
         <div>
-          <span className="eyebrow">FRONTEND PREVIEW</span>
+          <span className="eyebrow">GATHER WORKSPACE</span>
           <h2 id="record-title">{title}</h2>
         </div>
         <button
@@ -1259,7 +1324,7 @@ function RecordDialog({ modal, user, venue, tables, onClose, onSaved }) {
             {kind === "delete" || kind === "cancel" ? (
               <p className="modal-intro">
                 {kind === "delete"
-                  ? `Permanently remove ${record.name || record.label || record.guestName} from this preview? This cannot be undone.`
+                  ? `Permanently remove ${record.name || record.label || record.guestName} from your records? This cannot be undone.`
                   : "Cancel this booking and release its table? The reservation will remain in your records."}
               </p>
             ) : resource === "users" ? (

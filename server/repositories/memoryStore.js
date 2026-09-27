@@ -1,23 +1,50 @@
-import { randomUUID } from 'node:crypto';
-
-// Synchronous storage keeps check-and-write operations in one event-loop turn.
-// A future database adapter must enforce booking conflicts atomically in storage.
+import { randomUUID } from "node:crypto";
+export const collections = [
+  "restaurants",
+  "tables",
+  "reservations",
+  "users",
+  "sessions",
+];
 export function createMemoryStore() {
-  const collections = Object.fromEntries(['restaurants', 'tables', 'reservations'].map(name => [name, new Map()]));
-  const copy = value => value === undefined ? undefined : structuredClone(value);
-  return {
-    list: name => [...collections[name].values()].map(copy),
-    get: (name, id) => copy(collections[name].get(id)),
+  let state = Object.fromEntries(collections.map((name) => [name, new Map()]));
+  let queue = Promise.resolve();
+  const adapter = (data) => ({
+    list: (name) => [...data[name].values()].map((v) => structuredClone(v)),
+    get: (name, id) => {
+      const v = data[name].get(id);
+      return v ? structuredClone(v) : undefined;
+    },
     create(name, values) {
-      const record = { ...copy(values), id: randomUUID() };
-      collections[name].set(record.id, record);
-      return copy(record);
+      const record = { ...structuredClone(values), id: randomUUID() };
+      data[name].set(record.id, record);
+      return structuredClone(record);
     },
     update(name, id, values) {
-      const record = { ...collections[name].get(id), ...copy(values), id };
-      collections[name].set(id, record);
-      return copy(record);
+      if (!data[name].has(id)) throw new Error("Missing record");
+      const record = { ...data[name].get(id), ...structuredClone(values), id };
+      data[name].set(id, record);
+      return structuredClone(record);
     },
-    remove: (name, id) => collections[name].delete(id),
+    remove: (name, id) => data[name].delete(id),
+  });
+  return {
+    kind: "memory",
+    list: (...args) => adapter(state).list(...args),
+    get: (...args) => adapter(state).get(...args),
+    create: (...args) => adapter(state).create(...args),
+    update: (...args) => adapter(state).update(...args),
+    remove: (...args) => adapter(state).remove(...args),
+    transaction(work) {
+      const job = queue.then(async () => {
+        const next = structuredClone(state);
+        const result = await work(adapter(next));
+        state = next;
+        return result;
+      });
+      queue = job.catch(() => {});
+      return job;
+    },
+    close: async () => {},
   };
 }
