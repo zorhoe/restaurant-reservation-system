@@ -1,18 +1,15 @@
-import mongoose from 'mongoose';
 import app from './app.js';
-import connectDB from './config/db.js';
 import { env } from './config/env.js';
 
 try {
-  // Only accept requests once the database is available.
-  await connectDB();
-  const server = app.listen(env.port, () => {
-    console.log(`Server running on http://localhost:${env.port}`);
+  // Database connections are disabled during this development stage.
+  const server = app.listen(env.port, env.host, () => {
+    console.log(`Server running on http://${env.host}:${env.port}`);
+    console.log('Development storage: memory. Data resets on restart.');
   });
 
-  server.on('error', async (error) => {
+  server.on('error', (error) => {
     console.error(`HTTP server failed (${error.code || error.name}).`);
-    await mongoose.disconnect();
     process.exitCode = 1;
   });
 
@@ -22,16 +19,13 @@ try {
     stopping = true;
     const timeout = setTimeout(() => process.exit(1), 10000);
     timeout.unref();
-    server.close(async () => {
-      await mongoose.disconnect();
+    server.close(() => {
       clearTimeout(timeout);
     });
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 } catch (error) {
-  // Avoid printing connection strings or credentials from driver errors.
-  console.error(`Backend startup failed (${error.name}). Check MONGO_URI and MongoDB availability.`);
-  await mongoose.disconnect();
+  console.error(`Backend startup failed (${error.name}).`);
   process.exitCode = 1;
 }

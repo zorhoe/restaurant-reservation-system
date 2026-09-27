@@ -1,4 +1,4 @@
-import { env } from '../config/env.js';
+import { ApiError } from '../utils/ApiError.js';
 
 export function notFound(req, res) {
   res.status(404).json({ message: 'Route not found.' });
@@ -11,8 +11,10 @@ export function errorHandler(error, req, res, next) {
     ? error.status : 500;
   const message = error.type === 'entity.parse.failed'
     ? 'Invalid JSON body.'
-    : status >= 500 || env.nodeEnv === 'production'
-      ? 'Request could not be processed.'
-      : error.message;
+    : error.type === 'entity.too.large'
+      ? 'Request body exceeds the 1 MB limit.'
+      : error instanceof ApiError
+        ? error.message
+        : 'Request could not be processed.';
   res.status(status).json({ message });
 }
