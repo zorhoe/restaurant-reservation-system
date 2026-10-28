@@ -237,7 +237,6 @@ function AuthScreen({ registerMode, onSignIn }) {
             Good company
           </span>
         </div>
-        <small>Group 5 · C3A</small>
       </section>
       <section className="auth-panel">
         <div className="preview-banner">

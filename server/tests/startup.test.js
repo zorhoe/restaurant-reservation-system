@@ -11,7 +11,7 @@ test('real server starts and serves health with an empty MongoDB URI', { timeout
   const port = probe.address().port;
   await new Promise(resolve => probe.close(resolve));
   const child = spawn(process.execPath, [fileURLToPath(new URL('../server.js', import.meta.url))], {
-    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', MONGO_URI: '' },
+    env: { ...process.env, PORT: String(port), HOST: '127.0.0.1', MONGO_URI: '', MONGODB_URI: '' },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   });
