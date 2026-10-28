@@ -27,26 +27,12 @@ try {
     });
   }
   const server = createApp({ store }).listen(env.port, env.host, () => {
-import mongoose from 'mongoose';
-import app from './app.js';
-import { env } from './config/env.js';
-import connectDB from './config/db.js';
-
-try {
-  if (env.mongoUri) {
-    await connectDB();
-  } else {
-    console.log('MONGODB_URI is not set; starting without a MongoDB connection.');
-  }
-
-  const server = app.listen(env.port, env.host, () => {
     console.log(`Server running on http://${env.host}:${env.port}`);
     console.log(
       store.kind === "memory"
         ? "Memory mode: accounts, sessions, and records reset when the server restarts."
         : "MongoDB storage connected.",
     );
-    console.log('Reservation storage: memory. Data resets on restart.');
   });
   server.on("error", async (error) => {
     console.error(`HTTP server failed (${error.code || error.name}).`);
@@ -61,12 +47,6 @@ try {
     timeout.unref();
     server.close(async () => {
       await store.close();
-    server.close(async () => {
-      try {
-        if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
-      } catch (error) {
-        console.error(`MongoDB shutdown failed (${error.name}).`);
-      }
       clearTimeout(timeout);
     });
   };

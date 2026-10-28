@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import * as api from "./services/api";
 import "./App.css";
 
+const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const displayHours = hours => hours ? weekdays.map((day, index) => day + ': ' + (hours[index]?.map(w => w.open + '–' + w.close).join(', ') || 'Closed')).join(' · ') : 'Hours not configured';
 const dateLabel = (value) =>
   new Date(value).toLocaleDateString(undefined, {
     month: "short",
@@ -840,7 +842,7 @@ function Workspace({ user, onUser, onLogout, route, allowed }) {
                               <Icon name="leaf" size={44} />
                             </div>
                             <h3>{r.name}</h3>
-                            <p>{r.address}</p>
+                            
                             <div className="card-actions">
                               <button
                                 className="secondary"
@@ -1239,6 +1241,19 @@ function RecordDialog({ modal, user, venue, tables, onClose, onSaved }) {
         let payload = { ...values };
         if (resource === "restaurants" || resource === "tables")
           payload.active = values.active === "on";
+        if (resource === 'restaurants') {
+          payload.timeZone = 'Asia/Manila';
+          payload.openingHours = Object.fromEntries(weekdays.map((_, day) => {
+            const key = 'hours' + day;
+            const text = values[key].trim();
+            delete payload[key];
+            return [day, text ? text.split(',').map(period => {
+              const parts = period.trim().split('-').map(value => value.trim());
+              if (parts.length !== 2) throw new Error('Use HH:mm-HH:mm periods separated by commas.');
+              return { open: parts[0], close: parts[1] };
+            }) : []];
+          }));
+        }
         if (resource === "tables") payload.restaurantId = venue.id;
         if (resource === "users" && record?.id === user.id)
           payload.role = user.role;
@@ -1291,7 +1306,7 @@ function RecordDialog({ modal, user, venue, tables, onClose, onSaved }) {
                 <div key={key}>
                   <dt>{key.replace(/([A-Z])/g, " $1")}</dt>
                   <dd>
-                    {typeof value === "boolean"
+                    {key === 'openingHours' ? displayHours(value) : typeof value === "boolean"
                       ? value
                         ? "Yes"
                         : "No"
@@ -1353,6 +1368,18 @@ function RecordDialog({ modal, user, venue, tables, onClose, onSaved }) {
                     required
                   />
                 </label>
+                <label>
+                  Restaurant type / cuisine
+                  <input name="cuisine" defaultValue={record?.cuisine || ''} maxLength={200} required />
+                </label>
+                <p className="form-help">Weekly hours in Philippine time (Asia/Manila). Use 24-hour HH:mm-HH:mm, separated by commas for split service. Example: 11:00-14:00, 18:00-22:00. Leave closed days blank. A booking must finish before closing.</p>
+                {weekdays.map((day, index) => (
+                  <label key={day}>
+                    {day}
+                    <input name={'hours' + index} aria-label={day + ' opening hours'} placeholder="Closed"
+                      defaultValue={record?.openingHours?.[index]?.map(w => w.open + '-' + w.close).join(', ') || ''} maxLength={100} />
+                  </label>
+                ))}
                 <label className="check-label">
                   <input
                     name="active"
@@ -1445,7 +1472,8 @@ function RecordDialog({ modal, user, venue, tables, onClose, onSaved }) {
                   </label>
                 </div>
                 <p className="form-help">
-                  Local time · up to {settings.maxAdvanceDays} days ahead.
+                  Your device's local time · up to {settings.maxAdvanceDays} days ahead. Restaurant hours are in Philippine time.
+                  {venue && <span style={{ display: 'block' }}>{displayHours(venue.openingHours)}</span>}
                 </p>
               </>
             ) : (
