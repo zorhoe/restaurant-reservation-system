@@ -1,5 +1,8 @@
 import { ApiError } from '../utils/ApiError.js';
 
+// Kept beside the express.json limit in app.js so the message cannot drift.
+export const bodyLimit = '32 KB';
+
 export function notFound(req, res) {
   res.status(404).json({ message: 'Route not found.' });
 }
@@ -12,7 +15,7 @@ export function errorHandler(error, req, res, next) {
   const message = error.type === 'entity.parse.failed'
     ? 'Invalid JSON body.'
     : error.type === 'entity.too.large'
-      ? 'Request body exceeds the 1 MB limit.'
+      ? `Request body exceeds the ${bodyLimit} limit.`
       : error instanceof ApiError
         ? error.message
         : 'Request could not be processed.';

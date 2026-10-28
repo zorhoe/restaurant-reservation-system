@@ -1,9 +1,11 @@
 import { ApiError } from "../utils/ApiError.js";
 import * as input from "../validators/input.js";
 
+import { validateHours, assertOpen, unrestrictedHours } from "./openingHours.js";
+
 const statuses = ["confirmed", "cancelled", "completed"];
 const fields = {
-  restaurants: ["name", "address", "active"],
+  restaurants: ["name", "address", "active", "cuisine", "openingHours", "timeZone"],
   tables: ["restaurantId", "label", "capacity", "active"],
   reservations: [
     "tableId",
@@ -59,7 +61,17 @@ export function createReservationService({ store, clock, settings }) {
     const data = { ...existing, ...body };
     if (name === "restaurants") {
       data.name = input.text(data.name, "name");
-      data.address = input.text(data.address, "address", 500);
+      data.address = data.address === undefined || data.address === '' ? '' : input.text(data.address, 'address', 500);
+      data.cuisine = data.cuisine === undefined || data.cuisine === '' ? '' : input.text(data.cuisine, 'cuisine');
+      data.timeZone = data.timeZone || 'Asia/Manila';
+      if (data.timeZone !== 'Asia/Manila') input.fail('Restaurant timeZone must be Asia/Manila.');
+      data.openingHours = validateHours(data.openingHours === undefined ? unrestrictedHours() : data.openingHours);
+      if (existing && body.openingHours) {
+        for (const reservation of await store.list('reservations')) {
+          if (reservation.restaurantId === existing.id && reservation.status === 'confirmed' && reservation.endAt > now())
+            assertOpen(data, reservation.startAt, reservation.endAt);
+        }
+      }
       data.active = input.boolean(
         data.active === undefined ? true : data.active,
         "active",
@@ -136,6 +148,7 @@ export function createReservationService({ store, clock, settings }) {
         if (data.guestCount > table.capacity)
           conflict("Guest count exceeds table capacity.");
         data.endAt = validateWindow(data.startAt, data.durationMinutes);
+        assertOpen(restaurant, data.startAt, data.endAt);
         if (
           await overlaps(data.tableId, data.startAt, data.endAt, existing?.id)
         )
@@ -231,6 +244,7 @@ export function createReservationService({ store, clock, settings }) {
         1000,
       );
       const endAt = validateWindow(startAt, durationMinutes);
+      assertOpen(restaurant, startAt, endAt);
       const data = [];
       if (restaurant.active) {
         for (const table of await store.list("tables")) {
