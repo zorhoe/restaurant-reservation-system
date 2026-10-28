@@ -18,4 +18,9 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    // Tests run under Node, and api.js falls back to process.env outside Vite.
+    files: ['tests/**/*.js'],
+    languageOptions: { globals: { ...globals.node } },
+  },
 ])
