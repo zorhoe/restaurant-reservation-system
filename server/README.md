@@ -1,6 +1,6 @@
 # Backend API — local development
 
-Run `npm run server` from the project root. No MongoDB installation or connection is used.
+Run `npm run server` from the project root. Set `MONGODB_URI` in `server/.env` to connect to MongoDB Atlas; without it, the API starts without a database connection.
 The default URL is `http://127.0.0.1:5000/api`. Memory storage is empty on startup and all data disappears on restart.
 Authentication is not implemented: this API is for local testing, with no user ownership or admin restrictions yet.
 
@@ -12,13 +12,15 @@ Set optional values in `server/.env`, then restart:
 | --- | --- | --- |
 | PORT | 5000 | HTTP port |
 | HOST | 127.0.0.1 | Local-only binding by default |
+| MONGODB_URI | empty | MongoDB Atlas connection string; when set, startup waits for MongoDB |
 | CLIENT_ORIGIN | http://localhost:5173 | Allowed browser CORS origin; this is not authentication |
 | DEFAULT_DURATION_MINUTES | 90 | Reservation duration when omitted |
 | MAX_DURATION_MINUTES | 240 | Maximum allowed duration |
 | MAX_ADVANCE_DAYS | 90 | Maximum days ahead of the current instant |
 
 Clients can read public booking settings from `GET /api/config`. No environment secrets are returned.
-Existing `MONGO_URI` values are ignored by application startup. The old `db:check` command is an explicit database operation, not part of starting or testing this API.
+Copy the Atlas connection string from your cluster's **Connect** dialog into `server/.env` as `MONGODB_URI`, replacing its username, password, and database placeholders. Keep `server/.env` private and ensure your Atlas network access rules allow your machine. The older `MONGO_URI` variable is still accepted for compatibility. The `db:check` command remains available to test the connection explicitly.
+The API currently continues to store restaurants, tables, and reservations in memory even when MongoDB is connected; connecting does not yet enable persistence.
 
 ## Endpoints
 

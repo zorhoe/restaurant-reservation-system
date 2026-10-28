@@ -1,9 +1,14 @@
 import { Router } from 'express';
+import mongoose from 'mongoose';
 import { resourceController } from '../controllers/resourceController.js';
 
 export function createApiRouter(service, settings) {
   const router = Router();
-  router.get('/health', (req, res) => res.json({ status: 'ok', storage: 'memory', databaseConnected: false }));
+  router.get('/health', (req, res) => res.json({
+    status: 'ok',
+    storage: 'memory',
+    databaseConnected: mongoose.connection.readyState === 1,
+  }));
   router.get('/config', (req, res) => res.json({ data: {
     defaultDurationMinutes: settings.defaultDurationMinutes,
     maxDurationMinutes: settings.maxDurationMinutes,

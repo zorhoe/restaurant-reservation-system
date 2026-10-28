@@ -163,16 +163,8 @@ function AuthScreen({ registerMode, onSignIn }) {
             Good company
           </span>
         </div>
-        <small>Group 5 · C3A</small>
       </section>
       <section className="auth-panel">
-        <div className="preview-banner">
-          <strong>Frontend preview</strong>
-          <span>
-            Accounts and records reset on refresh. No real authentication or
-            database is connected. Use test details only.
-          </span>
-        </div>
         <div className="auth-form">
           <span className="eyebrow">WELCOME TO GATHER</span>
           <h2>{registerMode ? "Create your account" : "Welcome back"}</h2>
@@ -257,19 +249,6 @@ function AuthScreen({ registerMode, onSignIn }) {
               {registerMode ? "Sign in" : "Create an account"}
             </a>
           </p>
-          <div className="demo-credentials">
-            <strong>Preview accounts</strong>
-            <p>
-              Admin: <code>admin@example.com</code> / <code>Admin123!</code>
-            </p>
-            <p>
-              Regular User: <code>guest@example.com</code> /{" "}
-              <code>Guest123!</code>
-            </p>
-            <small>
-              These are public demo credentials, not production accounts.
-            </small>
-          </div>
         </div>
       </section>
     </div>
@@ -430,14 +409,6 @@ function Workspace({ user, onUser, onLogout, route, allowed }) {
           </span>
         </header>
         <main>
-          <div className="preview-banner">
-            <strong>Frontend preview · test data only</strong>
-            <span>
-              Changes stay in this tab until refresh. Sign-in, permissions, and
-              CRUD are simulated; JWT and server authorization are not
-              connected.
-            </span>
-          </div>
           {error && (
             <div className="alert error" role="alert">
               {error}

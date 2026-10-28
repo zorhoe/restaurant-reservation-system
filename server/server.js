@@ -1,11 +1,18 @@
+import mongoose from 'mongoose';
 import app from './app.js';
 import { env } from './config/env.js';
+import connectDB from './config/db.js';
 
 try {
-  // Database connections are disabled during this development stage.
+  if (env.mongoUri) {
+    await connectDB();
+  } else {
+    console.log('MONGODB_URI is not set; starting without a MongoDB connection.');
+  }
+
   const server = app.listen(env.port, env.host, () => {
     console.log(`Server running on http://${env.host}:${env.port}`);
-    console.log('Development storage: memory. Data resets on restart.');
+    console.log('Reservation storage: memory. Data resets on restart.');
   });
 
   server.on('error', (error) => {
@@ -19,7 +26,12 @@ try {
     stopping = true;
     const timeout = setTimeout(() => process.exit(1), 10000);
     timeout.unref();
-    server.close(() => {
+    server.close(async () => {
+      try {
+        if (mongoose.connection.readyState !== 0) await mongoose.disconnect();
+      } catch (error) {
+        console.error(`MongoDB shutdown failed (${error.name}).`);
+      }
       clearTimeout(timeout);
     });
   };

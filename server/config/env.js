@@ -16,7 +16,7 @@ const positiveInteger = (name, fallback) => {
 
 export const env = {
   port,
-  mongoUri: process.env.MONGO_URI?.trim(),
+  mongoUri: (process.env.MONGODB_URI || process.env.MONGO_URI)?.trim(),
   host: process.env.HOST || '127.0.0.1',
   nodeEnv: process.env.NODE_ENV || 'development',
   clientOrigin: process.env.CLIENT_ORIGIN || 'http://localhost:5173',
